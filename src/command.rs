@@ -1,14 +1,34 @@
 #[derive(Clone, Debug, serde::Serialize)]
 #[serde(tag = "t", content = "c")]
 pub enum Command {
-    KeyPresses(Vec<Key>),
-    Bang(BangCommand),
+    Keys(Vec<Key>),
+    Bang(Bang),
+}
+
+impl Command {
+    pub const fn is_trusted(&self) -> bool {
+        match self {
+            Self::Keys(_) => false,
+            Self::Bang(command) => command.is_trusted(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, serde::Serialize)]
 #[serde(tag = "t", content = "c")]
-pub enum BangCommand {
+#[non_exhaustive]
+pub enum Bang {
     SwitchGame(String),
+    Loop(Vec<Key>),
+}
+
+impl Bang {
+    pub const fn is_trusted(&self) -> bool {
+        match self {
+            Self::Loop(_) => false,
+            _ => true,
+        }
+    }
 }
 
 #[derive(Clone, Debug, serde_repr::Serialize_repr, PartialEq, Eq)]

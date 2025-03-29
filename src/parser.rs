@@ -8,31 +8,36 @@ use nom::{
     sequence::preceded,
 };
 
-use crate::command::{BangCommand, Command, Key};
+use crate::command::{Bang, Command, Key};
 
 pub fn parse(input: &str) -> IResult<&str, Command> {
-    alt((parse_bang, parse_keys)).parse(input)
+    alt((parse_bang, parse_keys.map(Command::Keys))).parse(input)
 }
 
 fn parse_bang(input: &str) -> IResult<&str, Command> {
-    map(preceded(char('!'), alt((parse_bang_switch,))), |x| {
-        Command::Bang(x)
-    })
-    .parse(input)
+    preceded(char('!'), alt((parse_loop, parse_bang_switch)))
+        .map(Command::Bang)
+        .parse(input)
 }
 
-fn parse_bang_switch(input: &str) -> IResult<&str, BangCommand> {
+fn parse_loop(input: &str) -> IResult<&str, Bang> {
+    preceded(tag("loop "), parse_keys)
+        .map(Bang::Loop)
+        .parse(input)
+}
+
+fn parse_bang_switch(input: &str) -> IResult<&str, Bang> {
     preceded(
         tag("switch "),
-        map(take_while(nom::AsChar::is_alpha), |game: &str| {
-            BangCommand::SwitchGame(game.to_owned())
+        map(take_while(nom::AsChar::is_alphanum), |game: &str| {
+            Bang::SwitchGame(game.to_owned())
         }),
     )
     .parse(input)
 }
 
-fn parse_keys(input: &str) -> IResult<&str, Command> {
-    map(many1(parse_key), Command::KeyPresses).parse(input)
+fn parse_keys(input: &str) -> IResult<&str, Vec<Key>> {
+    many1(parse_key).parse(input)
 }
 
 fn parse_key(input: &str) -> IResult<&str, Key> {
@@ -68,27 +73,22 @@ fn parse_key(input: &str) -> IResult<&str, Key> {
 mod tests {
     #[test]
     fn test_parse_bang_switch() {
-        use nom::Parser;
-
-        let (input, command) = super::parse.parse("!switch test").unwrap();
+        let (input, command) = super::parse("!switch 2kki").unwrap();
         assert_eq!(input, "");
 
-        let super::Command::Bang(super::BangCommand::SwitchGame(game)) = command else {
+        let super::Command::Bang(super::Bang::SwitchGame(game)) = command else {
             panic!();
         };
-        assert_eq!(game, "test");
+        assert_eq!(game, "2kki");
     }
 
     #[test]
-    fn parse_keys() {
-        use super::Key;
-        use nom::Parser;
-
-        let super::Command::KeyPresses(keys) = super::parse.parse("shift zwasdshiftx").unwrap().1
-        else {
+    fn test_parse_keys() {
+        let super::Command::Keys(keys) = super::parse("shift zwasdshiftx").unwrap().1 else {
             panic!();
         };
 
+        use super::Key;
         assert_eq!(keys, vec![
             Key::Shift,
             Key::Confirm,
@@ -99,5 +99,17 @@ mod tests {
             Key::Shift,
             Key::Cancel,
         ]);
+    }
+
+    #[test]
+    fn test_parse_loop() {
+        use super::Key;
+
+        let super::Command::Bang(super::Bang::Loop(keys)) = super::parse("!loop wasd").unwrap().1
+        else {
+            panic!();
+        };
+
+        assert_eq!(keys, vec![Key::Up, Key::Left, Key::Down, Key::Right,]);
     }
 }

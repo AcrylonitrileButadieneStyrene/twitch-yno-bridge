@@ -3,6 +3,7 @@
 
 mod command;
 mod parser;
+mod trusted;
 
 use command::Command;
 use tokio::sync::{
@@ -71,6 +72,7 @@ async fn get_redirect() -> impl axum::response::IntoResponse {
 async fn websocket(mut ws: axum::extract::ws::WebSocket, state: AppState) {
     let mut recv = state.channel.subscribe();
 
+    #[allow(clippy::redundant_pub_crate)]
     loop {
         tokio::select! {
             biased;
@@ -100,7 +102,7 @@ async fn on_socket_event(
             if !bytes.is_empty() && bytes[0] == 0x7F {
                 let mut vec = vec![0x7F];
                 vec.extend_from_slice(
-                    tokio::fs::read_to_string("./script.js")
+                    tokio::fs::read_to_string("script.js")
                         .await
                         .unwrap()
                         .as_bytes(),
@@ -125,18 +127,20 @@ async fn handle_twitch_chat(
             twitch_irc::message::ServerMessage::Privmsg(privmsg)
                 if privmsg.source.command == "PRIVMSG" =>
             {
-                if let [user, message] = &privmsg.source.params[..] {
-                    if let Ok((_, cmd)) = parser::parse(message) {
-                        if let Command::Bang(_) = cmd {
-                            match user.as_str() {
-                                "#fluoret" | "#starlitehi" | "#goobertgum" => (),
-                                _ => continue,
-                            }
-                        }
+                let [user, message] = &privmsg.source.params[..] else {
+                    println!("Failed to match {:?}", privmsg.source.params);
+                    continue;
+                };
 
-                        drop(sender.send(cmd));
-                    }
+                let Ok((_, command)) = parser::parse(message) else {
+                    continue;
+                };
+
+                if command.is_trusted() && !trusted::user(user) {
+                    continue;
                 }
+
+                drop(sender.send(command));
             }
             _ => (),
         }

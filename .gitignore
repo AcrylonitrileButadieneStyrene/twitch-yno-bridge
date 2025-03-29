@@ -1,2 +1,6 @@
 /target
+/node_modules
 deploy.sh
+
+trusted_users.txt
+script.js
