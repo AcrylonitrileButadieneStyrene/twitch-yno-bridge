@@ -1,1 +1,1 @@
-export const canvas = document.getElementById("canvas");
+export const canvas = document.getElementById("canvas") as HTMLCanvasElement;

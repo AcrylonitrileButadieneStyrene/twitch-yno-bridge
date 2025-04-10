@@ -1,5 +1,6 @@
 import handleBang from "./handlers/bang";
 import handleKeys from "./handlers/keys";
+import "./services";
 
 declare global {
     var __remote_script_loaded: boolean | undefined;
