@@ -1,0 +1,23 @@
+:not(:has(#canvas)) {
+    display: none !important;
+}
+
+#canvas, #display {
+    position: fixed;
+    top: 0;
+    left: 0;
+}
+
+#canvas, #display, #display > div {
+    display: block !important;
+}
+
+#display {
+    user-select: none;
+    z-index: 1;
+    color: white;
+}
+
+#display > div {
+    background-color: #00000080;
+}
